@@ -1,0 +1,201 @@
+# Transmetro V1 — Funcionamiento e instalación
+
+V1 conserva la estructura de LAVANDERIA-main: `backend/` para API y reglas de negocio, `frontend/` para React, componentes reutilizables y vistas por rol. La interfaz tiene logo, navegación de acciones, barra superior, sesión actual y botón de cerrar sesión. Las tablas muestran nombres y relaciones, sin pedir al usuario conocer IDs ni escribir JSON.
+
+## Estado en esta computadora
+
+La configuración privada está preparada en `backend/.env`. Consulta el MySQL local en `127.0.0.1:3306`, base `transmetro_v1_original`, usuario `transmetro_app`. Se conservan los datos y las tres cuentas que ya funcionaban. Desde la adaptación del 30/09/2026 las bases son independientes: V1 usa `transmetro_v1_original` y TRASNMETRO conserva `transmetro_db`. Se copiaron las cuentas y datos existentes a V1; los cambios futuros no se comparten. El código y la configuración de TRASNMETRO se conservaron.
+
+| Servicio | Versión anterior | V1 |
+| --- | --- | --- |
+| Frontend | http://localhost:5173 | http://localhost:5174 |
+| Backend | http://localhost:3000/api | http://localhost:3001/api |
+| Cookie | transmetro_session | transmetro_v1_session |
+| MySQL local | 127.0.0.1:3306 | 127.0.0.1:3306 |
+
+La cuenta de cada rol y su contraseña están en [CUENTAS_LOCALES.md](docs/CUENTAS_LOCALES.md). Los passwords se guardan con hash scrypt en MySQL. Las cuentas son para demostración local.
+
+## Base original recibida
+
+El esquema completo proviene de `transmetro_db.sql`: se conservaron sus 21 tablas, columnas, tipos sin signo, índices, claves foráneas y restricciones CHECK. El archivo recibido no contiene INSERT. Su copia intacta está en `backend/sql/original/`; no ejecutes ese archivo completo porque incluye instrucciones para eliminar/recrear el usuario y un GRANT con otro nombre de base. Usa los archivos seguros de instalación que se indican abajo. Consulta [la adaptación](docs/ADAPTACION_BASE_ORIGINAL.md) para conocer los cambios técnicos y la procedencia de los datos.
+
+## Arranque habitual
+
+Requiere Node.js 24 o superior y MySQL Server 8 en ejecución. MySQL Workbench es el cliente; crear una conexión en Workbench no inicia ni instala el servidor.
+
+Abre PowerShell en la carpeta raíz:
+
+```powershell
+Set-Location 'C:\Users\cobra\Desktop\LAVANDERIA\TRANSMETROV1'
+npm.cmd run install:all
+npm.cmd run dev:backend
+```
+
+Mantén esa terminal abierta. En otra terminal:
+
+```powershell
+Set-Location 'C:\Users\cobra\Desktop\LAVANDERIA\TRANSMETROV1'
+npm.cmd run dev:frontend
+```
+
+Abre http://localhost:5174. La API y MySQL se comprueban en http://localhost:3001/api/health. Debe indicar `status: ok` y `database: connected`.
+
+Usa `npm.cmd` en PowerShell para evitar el bloqueo de `npm.ps1`. Los comandos anteriores se ejecutan desde la raíz. Si ya estás dentro de `backend`, usa `npm.cmd run dev`, `npm.cmd run db:seed`, etc.; no añadas `--prefix backend` porque buscaría `backend/backend/package.json`.
+
+## Configurar una instalación nueva
+
+La base de V1 es `transmetro_v1_original`. Ejecuta [00_crear_base.sql](backend/sql/00_crear_base.sql) desde Workbench conectado como administrador. El archivo crea la base y concede permisos a la cuenta existente `transmetro_app`, sin cambiar su contraseña. En otro equipo, crea primero esa cuenta con tu propia contraseña (`CREATE USER 'transmetro_app'@'localhost' IDENTIFIED BY 'TU_CLAVE_MYSQL';`). Conserva la contraseña actual si esa cuenta también la utiliza TRASNMETRO. El administrador debe ejecutar estos pasos; la cuenta de la aplicación no puede crear bases.
+Para una instalación nueva, copia la plantilla solo si no existe configuración propia:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+Define estos valores en `backend/.env`; los valores con `TU_...` son ejemplos y deben reemplazarse:
+
+```dotenv
+NODE_ENV=development
+PORT=3001
+CORS_ORIGIN=http://localhost:5174
+DATABASE_HOST=127.0.0.1
+DATABASE_PORT=3306
+DATABASE_USER=transmetro_app
+DATABASE_PASSWORD="TU_CLAVE_MYSQL"
+DATABASE_NAME=transmetro_v1_original
+DATABASE_URL="mysql://transmetro_app:TU_CLAVE_CODIFICADA@127.0.0.1:3306/transmetro_v1_original"
+JWT_SECRET="TU_SECRETO_ALEATORIO_DE_AL_MENOS_32_CARACTERES"
+JWT_EXPIRES_IN=3600
+INITIAL_ADMIN_NAME=Administrador Transmetro
+INITIAL_ADMIN_USERNAME=admin@vetia.gt
+INITIAL_ADMIN_PASSWORD="TU_CLAVE_ADMIN"
+INITIAL_OPERATOR_NAME=Operador de estación
+INITIAL_OPERATOR_USERNAME=operador.estacion
+INITIAL_OPERATOR_PASSWORD="TU_CLAVE_OPERADOR"
+INITIAL_STAFF_NAME=Personal administrativo
+INITIAL_STAFF_USERNAME=administrativo
+INITIAL_STAFF_PASSWORD="TU_CLAVE_ADMINISTRATIVO"
+```
+
+`DATABASE_*` los usa la API y el seed; `DATABASE_URL` la usa Prisma para migraciones. Ambos deben apuntar al mismo servidor, base, usuario y contraseña. En la URL codifica la contraseña con `encodeURIComponent`: por ejemplo `@` se representa como `%40`, `#` como `%23` y `%` como `%25`. En `DATABASE_PASSWORD` escribe la contraseña real, sin codificar. Las contraseñas iniciales requieren al menos 12 caracteres, mayúscula, minúscula y número. El secreto de sesión debe ser aleatorio, distinto de las contraseñas.
+
+El frontend usa `http://127.0.0.1:3001` como destino del proxy `/api`. Si cambias el puerto, crea `frontend/.env` con `VITE_PROXY_TARGET=http://127.0.0.1:PUERTO`. Si cambias el origen del frontend, actualiza `CORS_ORIGIN`. Reinicia ambos procesos al cambiar `.env`.
+
+## Opción A: crear tablas y datos con Prisma
+
+Con la base vacía y credenciales válidas, desde la raíz:
+
+```powershell
+npm.cmd run install:all
+npm.cmd run db:prepare
+```
+
+Este comando aplica la migración, crea los roles y administrador, crea operador/administrativo y carga la demostración. Los seeds conservan las contraseñas de cuentas existentes. La carga demo usa códigos fijos: no la ejecutes sobre datos de producción ni sobre una demostración modificada que quieras preservar.
+
+Para ejecutar cada paso desde `backend`:
+
+```powershell
+npm.cmd run db:migrate:deploy
+npm.cmd run db:seed
+npm.cmd run db:seed:accounts
+npm.cmd run db:seed:demo
+```
+
+La generación del cliente Prisma está incluida en los comandos de desarrollo, compilación y seed. Así no falta `generated/prisma/client` al arrancar.
+
+## Opción B: carga manual desde MySQL Workbench
+
+Utiliza una base nueva y vacía. Primero confirma la conexión al servidor real; en esta computadora el puerto correcto es `3306`, no `3307`.
+
+1. Abre [00_crear_base.sql](backend/sql/00_crear_base.sql), ejecútalo como administrador MySQL (la cuenta debe existir previamente). Si ya existe la base y su usuario, conserva su configuración y omite este paso.
+2. Abre [01_tablas.sql](backend/sql/01_tablas.sql). Cambia `USE transmetro_v1_original` si elegiste otra base. Ejecuta el archivo completo con el rayo de Workbench. Contiene los `CREATE TABLE`, índices, claves foráneas y restricciones de las 21 tablas de negocio.
+3. Abre [02_datos_demo.sql](backend/sql/02_datos_demo.sql), ajusta `USE` al mismo nombre y ejecuta el archivo completo. Contiene los `INSERT` de la demostración local, incluyendo roles, cuentas con hashes, red, personal, asignaciones, visitas, conteos y bitácora. Este archivo contiene información local de prueba y está excluido de Git. No se debe ejecutar sobre tablas ya pobladas.
+4. Si prefieres crear tus propias credenciales, omite `02_datos_demo.sql` y ejecuta los tres seeds de la opción A después de registrar la migración como aplicada.
+5. Para que Prisma reconozca las tablas creadas manualmente, desde `backend` ejecuta:
+
+```powershell
+npx.cmd prisma migrate resolve --applied 20260930000000_original_schema
+npm.cmd run db:generate
+```
+
+`migrate resolve` registra la migración; no crea tablas ni las valida. Ejecútalo solo después de cargar `01_tablas.sql` completo. No uses esta opción si ya aplicaste `db:migrate:deploy`; Prisma ya mantiene su historial en `_prisma_migrations`.
+
+Después, en Workbench:
+
+```sql
+USE transmetro_v1_original;
+SHOW TABLES;
+SELECT nombre FROM roles;
+SELECT nombre, nombre_usuario, activo FROM usuarios;
+SELECT codigo, nombre, activo FROM lineas;
+SELECT codigo, capacidad_maxima FROM buses;
+SELECT id, recorrido_id, estacion_id, ocupacion, demanda FROM visitas;
+SELECT accion, entidad, entidad_id, descripcion FROM bitacora
+WHERE accion = 'REGISTRAR_VISITA';
+```
+
+Para renovar el archivo de INSERT desde la base local, sin modificarla:
+
+```powershell
+npm.cmd --prefix backend run db:export:demo
+```
+
+Este comando exporta las 21 tablas completas de la base configurada, no exclusivamente los códigos de demostración. Úsalo solo con datos locales que estés autorizado a copiar. Las contraseñas se exportan como hashes, nunca como texto plano.
+
+## Datos y funcionamiento por rol
+
+La demostración tiene dos líneas (`L1-CENTRO` y `L2-NORTE`), tres estaciones con Plaza Central compartida, cuatro buses, tres parqueos, cuatro pilotos, tres guardias y tres medios. Hay cuatro recorridos conservados de la base anterior y cuatro visitas para evaluar las reglas. Cada estación tiene operador, acceso cubierto y configuración de medios. Los seis conteos corresponden a Tarjeta y Boleto; Pase temporal permanece deshabilitado.
+
+| Rol | Trabajo disponible |
+| --- | --- |
+| Administrador | Cuentas/roles, municipalidades, estaciones/líneas/orden/distancias, personal, guardias/accesos/medios, flota/parqueos/asignaciones, operación, reportes y bitácora |
+| Operador de estación | Líneas de sus estaciones, iniciar recorridos, registrar la siguiente visita si tiene asignación vigente, cancelar recorridos autorizados, capturar y corregir sus conteos por medio habilitado |
+| Administrativo | Consulta de red, personal, seguridad, flota y reportes, sin formularios de escritura |
+
+Para configurar una red desde cero: crea municipalidad, estaciones y línea; configura el orden en el editor; crea cuentas y asigna operadores; crea accesos, guardias y cobertura y habilita los accesos; crea parqueos y buses y asigna buses a la línea; habilita la línea. El primer vínculo de una estación la habilita; una línea queda en preparación hasta que cumpla todas las reglas.
+
+El editor de orden usa estaciones por nombre, flechas para ordenar y kilómetros para cada tramo; la última parada no tiene distancia siguiente. En operación se bloquea la selección de buses con recorrido abierto. La siguiente estación proviene del orden configurado, no de una elección libre. La última visita finaliza el recorrido. Un cierre incompleto debe ser cancelación y conserva su historial.
+
+Demanda igual o superior a 150 % de la capacidad genera alerta de unidad adicional. Ocupación estrictamente inferior a 25 % genera cinco minutos adicionales de espera. Ambas reglas pueden aplicarse juntas. La interfaz muestra una previsión y el backend vuelve a calcularla al guardar. Son recomendaciones registradas, no despacho automático. El SQL original no almacena los tres campos de evaluación en `visitas`; V1 conserva la capacidad de cada visita nueva en `bitacora.descripcion` y devuelve los resultados calculados a la interfaz. Para visitas importadas sin esa información se usa la capacidad actual del bus y se muestra un aviso de estimación. En la copia local se conservó la capacidad histórica de las cuatro visitas anteriores.
+
+Los reportes permiten filtros pertinentes de fecha, línea, estación y bus. Los totales de visitas y conteos incluyen todos los registros coincidentes; el detalle de visitas está limitado a 1.000 filas y muestra un aviso cuando se recorta. El CSV exporta ese detalle cargado. Flota muestra las últimas 100 asignaciones de cada tipo por bus; sus filtros disponibles son línea y bus.
+
+## Verificación
+
+```powershell
+npm.cmd run check
+npm.cmd run build
+npm.cmd run test
+# Con el backend iniciado; desde backend:
+npm.cmd run test:smoke
+npm.cmd run test:original-db
+```
+
+La compilación de backend/frontend pasó. Pasaron 32 pruebas de backend y dos pruebas CSV: 34 en total. Las pruebas añadidas cubren agregados completos, períodos invertidos, fechas inválidas, cierre explícito, cronología de visitas, finalización incompleta, alta de estaciones y exportación CSV con protección frente a fórmulas.
+
+La verificación de compatibilidad también comprobó escrituras en las tablas originales y revirtió las filas temporales. `prisma migrate diff` no detectó diferencias entre MySQL y el modelo Prisma. El smoke local verificó inicio de sesión y permisos de los tres roles, consultas de catálogos, bloqueo de usuarios/reportes por rol, estación fuera del ámbito del operador y conexión MySQL. Las pruebas no reemplazan ensayos de concurrencia o carga; los RNF de latencia, usuarios concurrentes, HTTPS, revisión móvil y restauración de respaldos requieren validación adicional.
+
+Se aplicaron actualizaciones compatibles: el reporte npm del backend pasó de 10 a 6 vulnerabilidades (1 moderada y 5 altas, dependencias de Prisma/conector). El frontend reportó 0. No se aplicó `audit fix --force`, que proponía cambiar la versión mayor de Prisma y romper la base. Revisa estas dependencias antes de publicar fuera del entorno local.
+
+## Problemas frecuentes
+
+| Mensaje | Corrección |
+| --- | --- |
+| npm.ps1 bloqueado | Usa `npm.cmd` |
+| backend/backend/package.json | Estás en backend: elimina `--prefix backend` |
+| P1001 | Inicia MySQL Server y confirma host/puerto de Workbench |
+| P1000 | Verifica contraseña y permisos, y que `DATABASE_URL` coincida con `DATABASE_*` |
+| roles no existe / P2021 | Carga tablas por una de las dos opciones antes del seed |
+| cliente Prisma no encontrado | Ejecuta `npm.cmd run db:generate` desde backend |
+| localhost:5174 rechaza conexión | Inicia y mantén abierto el frontend |
+| Proxy ECONNREFUSED | Inicia backend en 3001 y comprueba `VITE_PROXY_TARGET` |
+| Puerto 5174 ocupado | Cierra el otro Vite o cambia puerto y CORS coherentemente |
+
+## Docker y despliegue
+
+Docker es opcional y no es necesario para el MySQL local actual. El Compose de V1 usa un proyecto y volumen separados: MySQL `3308`, backend `3001`, frontend `5174`. Requiere Docker instalado y un `.env` en la raíz con los valores de `.env.example`; esa configuración es distinta de `backend/.env`. No fue ejecutado en esta computadora porque Docker no está disponible.
+
+El Compose heredado incluye migración y seed del administrador. Las cuentas y datos demo se preparan manualmente si se desea; no son datos de producción. La configuración de producción necesita origen HTTPS, cookie Secure, reverse proxy y acceso restringido a MySQL. El ejemplo Compose con HTTP local no equivale a un despliegue seguro completo.
+
+La API usa cookie HttpOnly, comprobación de origen en escrituras, validación Zod, permisos en servidor y transacciones para asignaciones y visitas. No implementa pagos, GPS, cuentas de pasajeros ni control físico del transporte. Conserva las exclusiones de los documentos.
+
+Consulta [la comparación](docs/COMPARACION.md) y [arquitectura/requisitos](docs/ARQUITECTURA_Y_REQUISITOS.md).

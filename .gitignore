@@ -1,0 +1,154 @@
+# =========================================================
+# DEPENDENCIAS
+# =========================================================
+
+node_modules/
+**/node_modules/
+
+
+# =========================================================
+# COMPILACIÓN / BUILD
+# =========================================================
+
+dist/
+**/dist/
+
+build/
+**/build/
+
+coverage/
+**/coverage/
+
+*.tsbuildinfo
+
+
+# =========================================================
+# VARIABLES DE ENTORNO / SECRETOS
+# =========================================================
+
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Los archivos de ejemplo sí deben versionarse.
+!.env.example
+!**/.env.example
+
+
+# =========================================================
+# PRISMA
+# =========================================================
+
+# Prisma Client generado automáticamente.
+backend/generated/
+
+# Bases SQLite locales, si alguna vez se utilizan.
+*.db
+*.db-journal
+
+
+# =========================================================
+# VITE / FRONTEND
+# =========================================================
+
+.vite/
+**/.vite/
+
+vite.config.*.timestamp-*
+
+
+# =========================================================
+# LOGS
+# =========================================================
+
+*.log
+logs/
+**/logs/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# =========================================================
+# ARCHIVOS TEMPORALES
+# =========================================================
+
+tmp/
+**/tmp/
+
+temp/
+**/temp/
+
+*.tmp
+*.temp
+*.swp
+*.swo
+
+
+# =========================================================
+# CACHÉS
+# =========================================================
+
+.cache/
+**/.cache/
+
+.eslintcache
+
+
+# =========================================================
+# IDE / EDITORES
+# =========================================================
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+.idea/
+*.iml
+
+
+# =========================================================
+# SISTEMA OPERATIVO
+# =========================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# =========================================================
+# DOCKER / DATOS LOCALES
+# =========================================================
+
+# Si en algún momento se utilizan carpetas locales
+# para persistencia en lugar de volúmenes nombrados.
+mysql-data/
+docker-data/
+
+
+# =========================================================
+# CERTIFICADOS / CLAVES
+# =========================================================
+
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+
+# =========================================================
+# ARCHIVOS DE RESPALDO
+# =========================================================
+
+*.bak
+*.backup
+*.old
+# Información privada de la demostración local
+docs/CUENTAS_LOCALES.md
+backend/sql/02_datos_demo.sql
+
+.backups/

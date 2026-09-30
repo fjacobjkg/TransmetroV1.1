@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model rol {
+  id_rol Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  nombre String @db.VarChar(60)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  usuarios    usuario[]
+
+  @@unique([nombre], map: "uq_roles_nombre")
+  @@map("roles")
+}
+
+model usuario {
+  id_usuario Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  rol_id Int @db.UnsignedInt
+  nombre String @db.VarChar(120)
+  nombre_usuario String @db.VarChar(60)
+  password_hash String @db.VarChar(255)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  rol            rol       @relation(fields: [rol_id], references: [id_rol], onDelete: Restrict, onUpdate: Cascade, map: "fk_usuarios_rol")
+  bitacora       bitacora[]
+  asignaciones_estacion asignacion_usuario_estacion[]
+  visitas        visita[]
+  registros_acceso registro_acceso[]
+
+  @@unique([nombre_usuario], map: "uq_usuarios_nombre_usuario")
+  @@index([rol_id], map: "fk_usuarios_rol")
+  @@map("usuarios")
+}
+
+model bitacora {
+  id_bitacora BigInt @id @default(autoincrement()) @map("id") @db.UnsignedBigInt
+  usuario_id Int @db.UnsignedInt
+  accion String @db.VarChar(80)
+  entidad String @db.VarChar(80)
+  entidad_id Int? @db.UnsignedInt
+  descripcion String? @db.VarChar(500)
+  fecha_hora DateTime @default(now()) @db.DateTime(0)
+  usuario     usuario  @relation(fields: [usuario_id], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_bitacora_usuario")
+
+  @@index([usuario_id, fecha_hora], map: "idx_bitacora_usuario_fecha")
+  @@index([entidad, entidad_id], map: "idx_bitacora_entidad")
+  @@map("bitacora")
+}
+
+model municipalidad {
+  id_municipalidad Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  nombre String @db.VarChar(120)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  lineas           linea[]
+  estaciones       estacion[]
+
+  @@unique([nombre], map: "uq_municipalidades_nombre")
+  @@map("municipalidades")
+}
+
+model linea {
+  id_linea Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  municipalidad_id Int @db.UnsignedInt
+  codigo String @db.VarChar(30)
+  nombre String @db.VarChar(120)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  municipalidad    municipalidad @relation(fields: [municipalidad_id], references: [id_municipalidad], onDelete: Restrict, onUpdate: Cascade, map: "fk_lineas_municipalidad")
+  estaciones       linea_estacion[]
+  asignaciones_bus asignacion_bus_linea[]
+  recorridos       recorrido[]
+
+  @@unique([codigo], map: "uq_lineas_codigo")
+  @@index([municipalidad_id], map: "fk_lineas_municipalidad")
+  @@map("lineas")
+}
+
+model estacion {
+  id_estacion Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  municipalidad_id Int @db.UnsignedInt
+  codigo String @db.VarChar(30)
+  nombre String @db.VarChar(120)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  municipalidad    municipalidad @relation(fields: [municipalidad_id], references: [id_municipalidad], onDelete: Restrict, onUpdate: Cascade, map: "fk_estaciones_municipalidad")
+  lineas           linea_estacion[]
+  accesos          acceso[]
+  parqueos         parqueo[]
+  asignaciones_usuario asignacion_usuario_estacion[]
+  visitas          visita[]
+  medios_habilitados estacion_medio_acceso[]
+
+  @@unique([codigo], map: "uq_estaciones_codigo")
+  @@index([municipalidad_id], map: "fk_estaciones_municipalidad")
+  @@map("estaciones")
+}
+
+model linea_estacion {
+  id_linea_estacion Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  linea_id Int @db.UnsignedInt
+  estacion_id Int @db.UnsignedInt
+  orden Int @db.UnsignedSmallInt
+  distancia_siguiente Decimal? @db.Decimal(10,3)
+  activo Boolean @default(true)
+  linea             linea     @relation(fields: [linea_id], references: [id_linea], onDelete: Restrict, onUpdate: Cascade, map: "fk_linea_estacion_linea")
+  estacion          estacion  @relation(fields: [estacion_id], references: [id_estacion], onDelete: Restrict, onUpdate: Cascade, map: "fk_linea_estacion_estacion")
+
+  @@unique([linea_id, estacion_id], map: "uq_linea_estacion")
+  @@unique([linea_id, orden], map: "uq_linea_orden")
+  @@index([estacion_id], map: "fk_linea_estacion_estacion")
+  @@map("linea_estacion")
+}
+
+model acceso {
+  id_acceso Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  estacion_id Int @db.UnsignedInt
+  nombre String @db.VarChar(100)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  estacion     estacion  @relation(fields: [estacion_id], references: [id_estacion], onDelete: Restrict, onUpdate: Cascade, map: "fk_accesos_estacion")
+  asignaciones_guardia asignacion_guardia_acceso[]
+
+  @@unique([estacion_id, nombre], map: "uq_accesos_estacion_nombre")
+  @@map("accesos")
+}
+
+model guardia {
+  id_guardia Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  nombre String @db.VarChar(120)
+  telefono String? @db.VarChar(25)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  asignaciones asignacion_guardia_acceso[]
+
+  @@map("guardias")
+}
+
+model asignacion_guardia_acceso {
+  id_asignacion_guardia_acceso Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  guardia_id Int @db.UnsignedInt
+  acceso_id Int @db.UnsignedInt
+  fecha_inicio DateTime @db.DateTime(0)
+  fecha_fin DateTime? @db.DateTime(0)
+  guardia                      guardia  @relation(fields: [guardia_id], references: [id_guardia], onDelete: Restrict, onUpdate: Cascade, map: "fk_guardia_acceso_guardia")
+  acceso                       acceso   @relation(fields: [acceso_id], references: [id_acceso], onDelete: Restrict, onUpdate: Cascade, map: "fk_guardia_acceso_acceso")
+
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  @@index([guardia_id, fecha_fin], map: "idx_guardia_acceso_guardia_vigencia")
+  @@index([acceso_id, fecha_fin], map: "idx_guardia_acceso_acceso_vigencia")
+  @@map("asignacion_guardia_acceso")
+}
+
+model bus {
+  id_bus Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  codigo String @db.VarChar(30)
+  placa String @db.VarChar(20)
+  capacidad_maxima Int @db.UnsignedSmallInt
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  asignaciones_linea asignacion_bus_linea[]
+  asignaciones_parqueo asignacion_bus_parqueo[]
+  recorridos     recorrido[]
+
+  @@unique([codigo], map: "uq_buses_codigo")
+  @@unique([placa], map: "uq_buses_placa")
+  @@map("buses")
+}
+
+model asignacion_bus_linea {
+  id_asignacion_bus_linea Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  bus_id Int @db.UnsignedInt
+  linea_id Int @db.UnsignedInt
+  fecha_inicio DateTime @db.DateTime(0)
+  fecha_fin DateTime? @db.DateTime(0)
+  bus                     bus      @relation(fields: [bus_id], references: [id_bus], onDelete: Restrict, onUpdate: Cascade, map: "fk_bus_linea_bus")
+  linea                   linea    @relation(fields: [linea_id], references: [id_linea], onDelete: Restrict, onUpdate: Cascade, map: "fk_bus_linea_linea")
+
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  @@index([bus_id, fecha_fin], map: "idx_bus_linea_bus_vigencia")
+  @@index([linea_id, fecha_fin], map: "idx_bus_linea_linea_vigencia")
+  @@map("asignacion_bus_linea")
+}
+
+model parqueo {
+  id_parqueo Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  estacion_id Int @db.UnsignedInt
+  nombre String @db.VarChar(120)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  estacion     estacion  @relation(fields: [estacion_id], references: [id_estacion], onDelete: Restrict, onUpdate: Cascade, map: "fk_parqueos_estacion")
+  asignaciones asignacion_bus_parqueo[]
+
+  @@unique([estacion_id, nombre], map: "uq_parqueos_estacion_nombre")
+  @@map("parqueos")
+}
+
+model asignacion_bus_parqueo {
+  id_asignacion_bus_parqueo Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  bus_id Int @db.UnsignedInt
+  parqueo_id Int @db.UnsignedInt
+  fecha_inicio DateTime @db.DateTime(0)
+  fecha_fin DateTime? @db.DateTime(0)
+  bus                       bus      @relation(fields: [bus_id], references: [id_bus], onDelete: Restrict, onUpdate: Cascade, map: "fk_bus_parqueo_bus")
+  parqueo                   parqueo  @relation(fields: [parqueo_id], references: [id_parqueo], onDelete: Restrict, onUpdate: Cascade, map: "fk_bus_parqueo_parqueo")
+
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  @@index([bus_id, fecha_fin], map: "idx_bus_parqueo_bus_vigencia")
+  @@index([parqueo_id, fecha_fin], map: "idx_bus_parqueo_parqueo_vigencia")
+  @@map("asignacion_bus_parqueo")
+}
+
+model piloto {
+  id_piloto Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  nombre String @db.VarChar(120)
+  residencia String @db.VarChar(255)
+  informacion_educativa String? @db.Text
+  telefono String? @db.VarChar(25)
+  correo String? @db.VarChar(120)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("pilotos")
+}
+
+model asignacion_usuario_estacion {
+  id_asignacion_usuario_estacion Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  usuario_id Int @db.UnsignedInt
+  estacion_id Int @db.UnsignedInt
+  fecha_inicio DateTime @db.DateTime(0)
+  fecha_fin DateTime? @db.DateTime(0)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  usuario                        usuario  @relation(fields: [usuario_id], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_usuario_estacion_usuario")
+  estacion                       estacion @relation(fields: [estacion_id], references: [id_estacion], onDelete: Restrict, onUpdate: Cascade, map: "fk_usuario_estacion_estacion")
+
+  @@index([usuario_id, fecha_fin], map: "idx_usuario_estacion_usuario_vigencia")
+  @@index([estacion_id, fecha_fin], map: "idx_usuario_estacion_estacion_vigencia")
+  @@map("asignacion_usuario_estacion")
+}
+
+model recorrido {
+  id_recorrido BigInt @id @default(autoincrement()) @map("id") @db.UnsignedBigInt
+  bus_id Int @db.UnsignedInt
+  linea_id Int @db.UnsignedInt
+  fecha_inicio DateTime @db.DateTime(0)
+  fecha_fin DateTime? @db.DateTime(0)
+  estado String @db.VarChar(30)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  bus          bus            @relation(fields: [bus_id], references: [id_bus], onDelete: Restrict, onUpdate: Cascade, map: "fk_recorridos_bus")
+  linea        linea          @relation(fields: [linea_id], references: [id_linea], onDelete: Restrict, onUpdate: Cascade, map: "fk_recorridos_linea")
+  visitas      visita[]
+
+  @@index([bus_id, fecha_inicio], map: "idx_recorridos_bus_fecha")
+  @@index([linea_id, fecha_inicio], map: "idx_recorridos_linea_fecha")
+  @@map("recorridos")
+}
+
+model visita {
+  id_visita BigInt @id @default(autoincrement()) @map("id") @db.UnsignedBigInt
+  recorrido_id BigInt @db.UnsignedBigInt
+  estacion_id Int @db.UnsignedInt
+  usuario_id Int @db.UnsignedInt
+  orden Int @db.UnsignedSmallInt
+  fecha_hora DateTime @db.DateTime(0)
+  ocupacion Int @db.UnsignedSmallInt
+  demanda Int @db.UnsignedInt
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  recorrido       recorrido @relation(fields: [recorrido_id], references: [id_recorrido], onDelete: Restrict, onUpdate: Cascade, map: "fk_visitas_recorrido")
+  estacion        estacion @relation(fields: [estacion_id], references: [id_estacion], onDelete: Restrict, onUpdate: Cascade, map: "fk_visitas_estacion")
+  usuario         usuario  @relation(fields: [usuario_id], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_visitas_usuario")
+
+  @@unique([recorrido_id, orden], map: "uq_visitas_recorrido_orden")
+  @@index([estacion_id, fecha_hora], map: "idx_visitas_estacion_fecha")
+  @@index([usuario_id], map: "fk_visitas_usuario")
+  @@map("visitas")
+}
+
+model medio_acceso {
+  id_medio_acceso Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  nombre String @db.VarChar(100)
+  descripcion String? @db.VarChar(255)
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  actualizado_en DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  estaciones      estacion_medio_acceso[]
+
+  @@unique([nombre], map: "uq_medios_acceso_nombre")
+  @@map("medios_acceso")
+}
+
+model estacion_medio_acceso {
+  id_estacion_medio_acceso Int @id @default(autoincrement()) @map("id") @db.UnsignedInt
+  estacion_id Int @db.UnsignedInt
+  medio_acceso_id Int @db.UnsignedInt
+  activo Boolean @default(true)
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  estacion                 estacion @relation(fields: [estacion_id], references: [id_estacion], onDelete: Restrict, onUpdate: Cascade, map: "fk_estacion_medio_estacion")
+  medio_acceso             medio_acceso @relation(fields: [medio_acceso_id], references: [id_medio_acceso], onDelete: Restrict, onUpdate: Cascade, map: "fk_estacion_medio_medio")
+  registros                registro_acceso[]
+
+  @@unique([estacion_id, medio_acceso_id], map: "uq_estacion_medio")
+  @@index([medio_acceso_id], map: "fk_estacion_medio_medio")
+  @@map("estacion_medio_acceso")
+}
+
+model registro_acceso {
+  id_registro_acceso BigInt @id @default(autoincrement()) @map("id") @db.UnsignedBigInt
+  estacion_medio_acceso_id Int @db.UnsignedInt
+  usuario_id Int @db.UnsignedInt
+  fecha_registro DateTime @db.Date
+  cantidad Int @db.UnsignedInt
+  creado_en DateTime @default(now()) @db.Timestamp(0)
+  estacion_medio_acceso estacion_medio_acceso @relation(fields: [estacion_medio_acceso_id], references: [id_estacion_medio_acceso], onDelete: Restrict, onUpdate: Cascade, map: "fk_registros_acceso_estacion_medio")
+  usuario            usuario @relation(fields: [usuario_id], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_registros_acceso_usuario")
+
+  @@index([fecha_registro], map: "idx_registros_acceso_fecha")
+  @@index([estacion_medio_acceso_id, fecha_registro], map: "idx_registros_acceso_medio_fecha")
+  @@index([usuario_id], map: "fk_registros_acceso_usuario")
+  @@map("registros_acceso")
+}
+

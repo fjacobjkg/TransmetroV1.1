@@ -1,0 +1,88 @@
+name: transmetro-v1
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: transmetro-v1-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-transmetro_v1_original}
+      MYSQL_USER: ${MYSQL_USER:-transmetro_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Define MYSQL_PASSWORD en .env}
+    ports:
+      - "127.0.0.1:3308:3306"
+    volumes:
+      - transmetro_v1_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder
+    container_name: transmetro-v1-migrate
+    restart: "no"
+    command: ["npm", "run", "db:migrate:deploy"]
+    environment: &backend-environment
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5174}
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: ${MYSQL_USER:-transmetro_app}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD:?Define MYSQL_PASSWORD en .env}
+      DATABASE_NAME: ${MYSQL_DATABASE:-transmetro_v1_original}
+      DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL en .env}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600}
+      INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-}
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder
+    container_name: transmetro-v1-seed
+    restart: "no"
+    command: ["npm", "run", "db:seed"]
+    environment: *backend-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: transmetro-v1-backend
+    restart: unless-stopped
+    environment: *backend-environment
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: transmetro-v1-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5174:80"
+    depends_on:
+      - backend
+
+volumes:
+  transmetro_v1_mysql_data:
